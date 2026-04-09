@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codebook</title>
+<style>
+  body {
+    background-color: #1e1e1e;
+    color: #e0e0e0;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+  }
+
+  h1 {
+    margin: 20px 0 10px;
+    font-size: 1.8em;
+    text-align: center;
+  }
+
+  .pocketbook {
+    width: 90%;
+    max-width: 500px;
+    background: #2a2a2a;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 0 15px #000;
+    display: flex;
+    flex-direction: column;
+    height: 70%;
+    overflow: hidden;
+  }
+
+  .note-list {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 10px;
+  }
+
+  .note {
+    background: #333;
+    margin: 5px 0;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .note:hover {
+    background: #444;
+  }
+
+  input, textarea, select, button {
+    width: 100%;
+    margin: 5px 0;
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+    font-family: monospace;
+    font-size: 0.9em;
+    background: #2a2a2a;
+    color: #e0e0e0;
+  }
+
+  button {
+    background: #444;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  button:hover {
+    background: #555;
+  }
+
+  .cipher-select {
+    margin-bottom: 5px;
+  }
+
+  .page-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Secret Codebook</h1>
+<div class="pocketbook">
+
+  <div class="note-list" id="noteList"></div>
+
+  <textarea id="noteText" placeholder="Type your secret note here..."></textarea>
+
+  <select id="cipherSelect" class="cipher-select">
+    <option value="none">No Cipher</option>
+    <option value="reverse">Reverse Text</option>
+    <option value="caesar">Caesar Cipher (+3)</option>
+  </select>
+
+  <button onclick="addNote()">Add Note</button>
+
+  <div class="page-controls">
+    <button onclick="prevNote()">⬅ Previous</button>
+    <button onclick="nextNote()">Next ➡</button>
+  </div>
+
+</div>
+
+<script>
+  let notes = [];
+  let currentIndex = -1;
+  const noteList = document.getElementById('noteList');
+  const noteText = document.getElementById('noteText');
+  const cipherSelect = document.getElementById('cipherSelect');
+
+  function encode(text, cipher) {
+    if(cipher === 'reverse') return text.split('').reverse().join('');
+    if(cipher === 'caesar') {
+      return text.split('').map(c => {
+        if(c.match(/[a-z]/i)) {
+          let code = c.charCodeAt(0);
+          let base = (code >= 65 && code <= 90) ? 65 : 97;
+          return String.fromCharCode((code - base + 3) % 26 + base);
+        }
+        return c;
+      }).join('');
+    }
+    return text;
+  }
+
+  function decode(text, cipher) {
+    if(cipher === 'reverse') return text.split('').reverse().join('');
+    if(cipher === 'caesar') {
+      return text.split('').map(c => {
+        if(c.match(/[a-z]/i)) {
+          let code = c.charCodeAt(0);
+          let base = (code >= 65 && code <= 90) ? 65 : 97;
+          return String.fromCharCode((code - base + 26 - 3) % 26 + base);
+        }
+        return c;
+      }).join('');
+    }
+    return text;
+  }
+
+  function addNote() {
+    const text = noteText.value.trim();
+    const cipher = cipherSelect.value;
+    if(text === "") return alert("Note cannot be empty!");
+    notes.push({text: encode(text, cipher), cipher: cipher});
+    noteText.value = "";
+    renderNotes();
+    currentIndex = notes.length -1;
+    showCurrentNote();
+  }
+
+  function renderNotes() {
+    noteList.innerHTML = "";
+    notes.forEach((n, i) => {
+      const div = document.createElement('div');
+      div.className = "note";
+      div.textContent = decode(n.text, n.cipher).substring(0, 30) + (n.text.length > 30 ? "..." : "");
+      div.onclick = () => { currentIndex = i; showCurrentNote(); };
+      noteList.appendChild(div);
+    });
+  }
+
+  function showCurrentNote() {
+    if(currentIndex < 0 || currentIndex >= notes.length) return;
+    const n = notes[currentIndex];
+    noteText.value = decode(n.text, n.cipher);
+  }
+
+  function nextNote() {
+    if(notes.length === 0) return;
+    currentIndex = (currentIndex + 1) % notes.length;
+    showCurrentNote();
+  }
+
+  function prevNote() {
+    if(notes.length === 0) return;
+    currentIndex = (currentIndex - 1 + notes.length) % notes.length;
+    showCurrentNote();
+  }
+
+</script>
+
+</body>
+</html>
