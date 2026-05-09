@@ -1,194 +1,154 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Codebook</title>
-<style>
-  body {
-    background-color: #1e1e1e;
-    color: #e0e0e0;
-    font-family: 'Courier New', monospace;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: 0;
-    padding: 0;
-    height: 100vh;
-  }
-
-  h1 {
-    margin: 20px 0 10px;
-    font-size: 1.8em;
-    text-align: center;
-  }
-
-  .pocketbook {
-    width: 90%;
-    max-width: 500px;
-    background: #2a2a2a;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 0 15px #000;
-    display: flex;
-    flex-direction: column;
-    height: 70%;
-    overflow: hidden;
-  }
-
-  .note-list {
-    flex: 1;
-    overflow-y: auto;
-    margin-bottom: 10px;
-  }
-
-  .note {
-    background: #333;
-    margin: 5px 0;
-    padding: 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .note:hover {
-    background: #444;
-  }
-
-  input, textarea, select, button {
-    width: 100%;
-    margin: 5px 0;
-    padding: 8px;
-    border-radius: 5px;
-    border: none;
-    font-family: monospace;
-    font-size: 0.9em;
-    background: #2a2a2a;
-    color: #e0e0e0;
-  }
-
-  button {
-    background: #444;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  button:hover {
-    background: #555;
-  }
-
-  .cipher-select {
-    margin-bottom: 5px;
-  }
-
-  .page-controls {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 5px;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <title>Narrative Transit Navigator</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #0b0f14;
+      color: #d7f3ff;
+      padding: 20px;
+    }
+    button {
+      padding: 10px;
+      margin: 5px 0;
+      cursor: pointer;
+    }
+    .block {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #1f2a33;
+      background: #0f1620;
+    }
+    .story {
+      color: #7ee0ff;
+      margin-bottom: 10px;
+    }
+    .step {
+      color: #ffffff;
+    }
+  </style>
 </head>
 <body>
 
-<h1>Secret Codebook</h1>
-<div class="pocketbook">
+<h2>🧭 Narrative Transit Navigator</h2>
 
-  <div class="note-list" id="noteList"></div>
+<button onclick="getLocation()">Set Start (Use My Location)</button>
+<button onclick="run()">Generate Journey</button>
 
-  <textarea id="noteText" placeholder="Type your secret note here..."></textarea>
+<div class="block">
+  <div id="status">Status: Waiting for input...</div>
+</div>
 
-  <select id="cipherSelect" class="cipher-select">
-    <option value="none">No Cipher</option>
-    <option value="reverse">Reverse Text</option>
-    <option value="caesar">Caesar Cipher (+3)</option>
-  </select>
-
-  <button onclick="addNote()">Add Note</button>
-
-  <div class="page-controls">
-    <button onclick="prevNote()">⬅ Previous</button>
-    <button onclick="nextNote()">Next ➡</button>
-  </div>
-
+<div class="block">
+  <div id="output"></div>
 </div>
 
 <script>
-  let notes = [];
-  let currentIndex = -1;
-  const noteList = document.getElementById('noteList');
-  const noteText = document.getElementById('noteText');
-  const cipherSelect = document.getElementById('cipherSelect');
+let userLat = null;
+let userLon = null;
 
-  function encode(text, cipher) {
-    if(cipher === 'reverse') return text.split('').reverse().join('');
-    if(cipher === 'caesar') {
-      return text.split('').map(c => {
-        if(c.match(/[a-z]/i)) {
-          let code = c.charCodeAt(0);
-          let base = (code >= 65 && code <= 90) ? 65 : 97;
-          return String.fromCharCode((code - base + 3) % 26 + base);
-        }
-        return c;
-      }).join('');
-    }
-    return text;
+// Hardcoded destination (Little Sweet Cafe - Brooklyn)
+const dest = {
+  name: "The Little Sweet Cafe",
+  lat: 40.6868,   // approximate Brooklyn Heights / Downtown Brooklyn area
+  lon: -73.9895
+};
+
+// --- distance formula ---
+function distance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI/180;
+  const dLon = (lon2 - lon1) * Math.PI/180;
+  const a =
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+// --- get GPS ---
+function getLocation() {
+  navigator.geolocation.getCurrentPosition(pos => {
+    userLat = pos.coords.latitude;
+    userLon = pos.coords.longitude;
+    document.getElementById("status").innerText =
+      "Start locked: " + userLat.toFixed(4) + ", " + userLon.toFixed(4);
+  });
+}
+
+// --- narrative engine ---
+function narrate(steps) {
+  const out = document.getElementById("output");
+  out.innerHTML = "";
+
+  steps.forEach(s => {
+    const div = document.createElement("div");
+    div.className = "block";
+    div.innerHTML = `
+      <div class="story">${s.story}</div>
+      <div class="step">→ ${s.instruction}</div>
+    `;
+    out.appendChild(div);
+  });
+}
+
+// --- route generator (heuristic, NOT API-based) ---
+function run() {
+  if (!userLat) {
+    alert("Set your location first.");
+    return;
   }
 
-  function decode(text, cipher) {
-    if(cipher === 'reverse') return text.split('').reverse().join('');
-    if(cipher === 'caesar') {
-      return text.split('').map(c => {
-        if(c.match(/[a-z]/i)) {
-          let code = c.charCodeAt(0);
-          let base = (code >= 65 && code <= 90) ? 65 : 97;
-          return String.fromCharCode((code - base + 26 - 3) % 26 + base);
-        }
-        return c;
-      }).join('');
-    }
-    return text;
-  }
+  const d = distance(userLat, userLon, dest.lat, dest.lon);
 
-  function addNote() {
-    const text = noteText.value.trim();
-    const cipher = cipherSelect.value;
-    if(text === "") return alert("Note cannot be empty!");
-    notes.push({text: encode(text, cipher), cipher: cipher});
-    noteText.value = "";
-    renderNotes();
-    currentIndex = notes.length -1;
-    showCurrentNote();
-  }
+  let steps = [];
 
-  function renderNotes() {
-    noteList.innerHTML = "";
-    notes.forEach((n, i) => {
-      const div = document.createElement('div');
-      div.className = "note";
-      div.textContent = decode(n.text, n.cipher).substring(0, 30) + (n.text.length > 30 ? "..." : "");
-      div.onclick = () => { currentIndex = i; showCurrentNote(); };
-      noteList.appendChild(div);
+  // Phase 1
+  steps.push({
+    story: "Something sweet exists. You have begun the approach.",
+    instruction: "Begin movement from your current location."
+  });
+
+  // Phase 2 logic (very rough NYC heuristic)
+  if (d > 15) {
+    steps.push({
+      story: "The city is large between you and it. Transit is required.",
+      instruction: "Walk to nearest major transit station (PATH or subway hub)."
+    });
+
+    steps.push({
+      story: "Underground movement begins. Steel pathways take over distance.",
+      instruction: "Take a train toward Manhattan."
+    });
+  } else {
+    steps.push({
+      story: "The pull is already regional. Direct movement is possible.",
+      instruction: "Use subway lines heading toward Brooklyn."
     });
   }
 
-  function showCurrentNote() {
-    if(currentIndex < 0 || currentIndex >= notes.length) return;
-    const n = notes[currentIndex];
-    noteText.value = decode(n.text, n.cipher);
-  }
+  // Phase 3
+  steps.push({
+    story: "Direction becomes stable. The route narrows into certainty.",
+    instruction: "Transfer if needed toward Brooklyn-bound line."
+  });
 
-  function nextNote() {
-    if(notes.length === 0) return;
-    currentIndex = (currentIndex + 1) % notes.length;
-    showCurrentNote();
-  }
+  // Phase 4
+  steps.push({
+    story: "Exit underground. The destination is now local.",
+    instruction: "Walk 5–10 minutes from final station."
+  });
 
-  function prevNote() {
-    if(notes.length === 0) return;
-    currentIndex = (currentIndex - 1 + notes.length) % notes.length;
-    showCurrentNote();
-  }
+  // Arrival
+  steps.push({
+    story: "You have arrived. The signal resolves into place.",
+    instruction: "Destination: " + dest.name
+  });
 
+  narrate(steps);
+}
 </script>
 
 </body>
