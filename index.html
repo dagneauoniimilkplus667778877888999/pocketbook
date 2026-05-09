@@ -6,86 +6,83 @@
 <title>SIGNAL / ORACLE</title>
 
 <style>
-  :root {
-    --bg: #04070a;
-    --fg: #b7fff5;
-    --muted: #4c6b70;
-    --accent: #00ffe1;
-    --danger: #ff4d6d;
-  }
+:root {
+  --bg:#05070a;
+  --fg:#b7fff5;
+  --muted:#4c6b70;
+  --accent:#00ffe1;
+}
 
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--fg);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    overflow-x: hidden;
-  }
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family: monospace;
+}
 
-  .wrap {
-    padding: 18px;
-    max-width: 720px;
-    margin: auto;
-  }
+.wrap {
+  padding:18px;
+  max-width:780px;
+  margin:auto;
+}
 
-  .title {
-    letter-spacing: 4px;
-    font-size: 12px;
-    color: var(--accent);
-    opacity: 0.85;
-  }
+.title {
+  color:var(--accent);
+  letter-spacing:4px;
+  font-size:12px;
+  margin-bottom:10px;
+}
 
-  .panel {
-    margin-top: 14px;
-    border: 1px solid #12343a;
-    background: rgba(10, 16, 20, 0.65);
-    padding: 14px;
-  }
+.panel {
+  margin-top:14px;
+  border:1px solid #12343a;
+  padding:12px;
+  background:rgba(10,16,20,0.65);
+}
 
-  .label {
-    color: var(--muted);
-    font-size: 11px;
-    letter-spacing: 2px;
-    margin-bottom: 6px;
-  }
+.label {
+  font-size:11px;
+  color:var(--muted);
+  letter-spacing:2px;
+}
 
-  .value {
-    font-size: 16px;
-    line-height: 1.5;
-  }
+.value {
+  margin-top:6px;
+  font-size:14px;
+}
 
-  .accent {
-    color: var(--accent);
-    text-shadow: 0 0 10px rgba(0,255,225,0.3);
-  }
+input, select, button {
+  width:100%;
+  margin-top:6px;
+  padding:8px;
+  background:#0b1418;
+  border:1px solid #1d3a40;
+  color:var(--fg);
+  font-family: monospace;
+}
 
-  .pulse {
-    animation: pulse 1.6s infinite;
-  }
+.bar {
+  height:6px;
+  background:#0d1a1f;
+  margin-top:10px;
+}
 
-  @keyframes pulse {
-    0% { opacity: 0.3; }
-    50% { opacity: 1; }
-    100% { opacity: 0.3; }
-  }
+.fill {
+  height:100%;
+  width:0%;
+  background:var(--accent);
+  transition:width 0.3s;
+}
 
-  .bar {
-    height: 6px;
-    background: #0d1a1f;
-    margin-top: 10px;
-    overflow: hidden;
-  }
+.state {
+  font-size:16px;
+  margin-top:6px;
+}
 
-  .fill {
-    height: 100%;
-    width: 0%;
-    background: var(--accent);
-    transition: width 0.4s ease;
-  }
-
-  .danger {
-    color: var(--danger);
-  }
+.glow {
+  color:var(--accent);
+  text-shadow:0 0 10px rgba(0,255,225,0.25);
+}
 </style>
 </head>
 
@@ -95,110 +92,141 @@
 
   <div class="title">SIGNAL / ORACLE NAVIGATION SYSTEM</div>
 
+  <!-- TARGET SELECT -->
   <div class="panel">
-    <div class="label">TARGET NODE</div>
-    <div class="value accent">
-      The Little Sweet Cafe<br/>
-      40.6868° N / 73.9895° W
-    </div>
+    <div class="label">ACTIVE NODE</div>
+    <select id="nodeSelect"></select>
+    <button onclick="setTarget()">LOCK TARGET</button>
   </div>
 
+  <!-- ADD NODE -->
+  <div class="panel">
+    <div class="label">ADD NODE (SIGIL)</div>
+    <input id="name" placeholder="name"/>
+    <input id="lat" placeholder="latitude"/>
+    <input id="lon" placeholder="longitude"/>
+    <button onclick="addNode()">STORE NODE</button>
+  </div>
+
+  <!-- GPS -->
   <div class="panel">
     <div class="label">CURRENT POSITION</div>
-    <div id="coords" class="value">INITIALIZING GPS...</div>
+    <div id="pos" class="value">WAITING FOR GPS...</div>
   </div>
 
+  <!-- DISTANCE -->
   <div class="panel">
     <div class="label">DISTANCE FIELD</div>
-    <div id="distance" class="value">---</div>
+    <div id="dist" class="value">---</div>
     <div class="bar"><div id="bar" class="fill"></div></div>
   </div>
 
+  <!-- STATE -->
   <div class="panel">
     <div class="label">ORACLE STATE</div>
-    <div id="state" class="value pulse">DORMANT</div>
-  </div>
-
-  <div class="panel">
-    <div class="label">TRANSMISSION</div>
-    <div id="msg" class="value">AWAITING SIGNAL LOCK...</div>
+    <div id="state" class="state glow">DORMANT</div>
+    <div id="msg" class="value">AWAITING SIGNAL LOCK</div>
   </div>
 
 </div>
 
 <script>
-const target = {
-  lat: 40.6868,
-  lon: -73.9895,
-  name: "The Little Sweet Cafe"
-};
+let nodes = JSON.parse(localStorage.getItem("nodes") || "[]");
 
-// Haversine distance
-function distanceMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const toRad = x => x * Math.PI / 180;
-
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat/2)**2 +
-    Math.cos(toRad(lat1)) *
-    Math.cos(toRad(lat2)) *
-    Math.sin(dLon/2)**2;
-
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+if (!nodes.length) {
+  nodes = [{
+    name: "The Little Sweet Cafe",
+    lat: 40.6868,
+    lon: -73.9895
+  }];
+  localStorage.setItem("nodes", JSON.stringify(nodes));
 }
 
-// Oracle state machine
-function oracleState(d) {
-  if (d > 20000) return ["VOID RANGE", "The signal exists only as concept."];
-  if (d > 8000)  return ["ECHO FIELD", "Direction exists, form does not."];
-  if (d > 3000)  return ["SIGNAL AWAKENING", "Urban structure begins to align."];
-  if (d > 1200)  return ["ALIGNMENT", "Transit logic becomes dominant."];
-  if (d > 400)   return ["CONVERGENCE", "Walking vector engaged."];
-  return ["ARRIVAL VECTOR", "Destination is physically present."];
-}
+let active = nodes[0];
 
-// GPS
-if (!navigator.geolocation) {
-  document.getElementById("msg").innerText =
-    "GPS NOT SUPPORTED ON THIS DEVICE";
-} else {
-
-  navigator.geolocation.watchPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
-
-    const d = distanceMeters(lat, lon, target.lat, target.lon);
-
-    document.getElementById("coords").innerText =
-      `${lat.toFixed(5)} / ${lon.toFixed(5)}`;
-
-    document.getElementById("distance").innerText =
-      `${Math.round(d)} meters`;
-
-    const pct = Math.max(0, 100 - (d / 250));
-    document.getElementById("bar").style.width = pct + "%";
-
-    const [state, msg] = oracleState(d);
-
-    document.getElementById("state").innerText = state;
-    document.getElementById("msg").innerText = msg;
-
-    // ambient intensity shift (pure CSS filter)
-    document.body.style.filter =
-      `brightness(${1 + pct/250}) contrast(${1 + pct/300})`;
-
-  }, err => {
-    document.getElementById("msg").innerText =
-      "LOCATION PERMISSION REQUIRED";
-    document.getElementById("state").classList.add("danger");
-  }, {
-    enableHighAccuracy: true,
-    maximumAge: 1000
+// populate dropdown
+function refreshList() {
+  const sel = document.getElementById("nodeSelect");
+  sel.innerHTML = "";
+  nodes.forEach((n,i)=>{
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = n.name;
+    sel.appendChild(opt);
   });
 }
+refreshList();
+
+function setTarget() {
+  const i = document.getElementById("nodeSelect").value;
+  active = nodes[i];
+}
+
+function addNode() {
+  const name = document.getElementById("name").value;
+  const lat = parseFloat(document.getElementById("lat").value);
+  const lon = parseFloat(document.getElementById("lon").value);
+
+  if (!name || isNaN(lat) || isNaN(lon)) return;
+
+  nodes.push({name,lat,lon});
+  localStorage.setItem("nodes", JSON.stringify(nodes));
+  refreshList();
+}
+
+// distance
+function dist(a,b,c,d){
+  const R=6371000;
+  const toR=x=>x*Math.PI/180;
+  const dLat=toR(c-a);
+  const dLon=toR(d-b);
+
+  const x=
+    Math.sin(dLat/2)**2+
+    Math.cos(toR(a))*Math.cos(toR(c))*
+    Math.sin(dLon/2)**2;
+
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+// oracle states
+function oracle(d){
+  if(d>20000) return ["VOID","signal is conceptual"];
+  if(d>8000)  return ["ECHO","direction emerging"];
+  if(d>3000)  return ["ALIGNMENT","system stabilizing"];
+  if(d>1000)  return ["CONVERGENCE","route active"];
+  if(d>200)   return ["NEAR","walking vector engaged"];
+  return ["ARRIVAL","target physically present"];
+}
+
+// GPS loop
+navigator.geolocation.watchPosition(pos=>{
+  if(!active) return;
+
+  const lat=pos.coords.latitude;
+  const lon=pos.coords.longitude;
+
+  const d=dist(lat,lon,active.lat,active.lon);
+
+  document.getElementById("pos").innerText=
+    lat.toFixed(5)+" / "+lon.toFixed(5);
+
+  document.getElementById("dist").innerText=
+    Math.round(d)+" meters";
+
+  const pct=Math.max(0,100-d/200);
+  document.getElementById("bar").style.width=pct+"%";
+
+  const [state,msg]=oracle(d);
+
+  document.getElementById("state").innerText=state;
+  document.getElementById("msg").innerText=
+    active.name+" → "+msg;
+
+},err=>{
+  document.getElementById("msg").innerText=
+    "GPS PERMISSION REQUIRED (ENABLE LOCATION)";
+});
 </script>
 
 </body>
